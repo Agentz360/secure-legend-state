@@ -252,7 +252,7 @@ function setupRealtime(props: SyncedKeelPropsBase<any>) {
         modifiedClients.add(client);
         const originalRawRequest = client.client.rawRequest;
         client.client.rawRequest = (action: string, body: any) => {
-            if (action.startsWith('list')) {
+            if (action.startsWith('list') || action.startsWith('get')) {
                 realtimeState.current = {
                     lastAction: action,
                     lastParams: body,
