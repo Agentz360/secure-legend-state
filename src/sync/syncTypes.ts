@@ -72,6 +72,7 @@ export interface SyncedSubscribeParams<T = any> extends SyncedGetSetSubscribeBas
 }
 
 export interface SyncedErrorParams {
+    syncOptions?: Readonly<SyncedOptions<any>>;
     source: 'get' | 'set' | 'subscribe';
     type: 'get' | 'set';
     retry: OnErrorRetryParams;

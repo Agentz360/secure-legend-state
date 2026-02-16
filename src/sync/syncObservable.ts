@@ -692,12 +692,18 @@ async function doChangeRemote(changeInfo: PreppedChangeRemote | undefined) {
                 if (lastErrorHandled !== error) {
                     if (!params) {
                         params = {
+                            syncOptions,
                             setParams: setParams as SyncedSetParams<any>,
                             source: 'set',
                             type: 'set',
                             input: value,
                             retry: setParams,
                             revert: createRevertChanges(setParams.value$, setParams.changes),
+                        };
+                    } else if (!params.syncOptions) {
+                        params = {
+                            ...params,
+                            syncOptions,
                         };
                     }
                     state$.error.set(error);
@@ -1119,9 +1125,15 @@ export function syncObservable<T>(
         if (lastErrorHandled !== error) {
             if (!params) {
                 params = {
+                    syncOptions,
                     source: 'get',
                     type: 'get',
-                    retry: params,
+                    retry: { retryNum: 0, cancelRetry: false },
+                };
+            } else if (!params.syncOptions) {
+                params = {
+                    ...params,
+                    syncOptions,
                 };
             }
             syncState$.error.set(error);
@@ -1349,6 +1361,7 @@ export function syncObservable<T>(
                             onError: (error: Error) =>
                                 onGetError(error, {
                                     source: 'subscribe',
+                                    syncOptions,
                                     subscribeParams,
                                     type: 'get',
                                     retry: {} as OnErrorRetryParams,
@@ -1457,7 +1470,11 @@ export function syncObservable<T>(
                         };
                         if (isPromise(got)) {
                             got.then(handle).catch((error) => {
-                                onGetError(error, { getParams, source: 'get', type: 'get', retry: getParams }, true);
+                                onGetError(
+                                    error,
+                                    { getParams, syncOptions, source: 'get', type: 'get', retry: getParams },
+                                    true,
+                                );
                             });
                         } else {
                             handle(got);
