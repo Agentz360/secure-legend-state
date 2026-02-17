@@ -179,6 +179,27 @@ describe('Middleware System', () => {
             });
         });
 
+        test('should validate listener-added events when listener Sets exists but are ampty', () => {
+            const handler = jest.fn();
+            registerMiddleware(rootNode, 'listener-added', handler);
+
+            rootNode.listeners = new Set();
+            rootNode.listenersImmediate = new Set();
+
+            // Simulate "there is at least one recurisve listener"
+            rootNode.numListenersRecursive = 1;
+
+            dispatchMiddlewareEvent(rootNode, undefined, 'listener-added');
+
+            // Wait for first microtask to complete
+            return new Promise((resolve) => {
+                setTimeout(() => {
+                    expect(handler).toHaveBeenCalledTimes(1);
+                    resolve(null);
+                }, 0);
+            });
+        });
+
         test('should validate listener-removed events before dispatching', () => {
             const handler = jest.fn();
             registerMiddleware(countNode, 'listener-removed', handler);
