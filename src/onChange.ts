@@ -101,7 +101,7 @@ export function onChange(
         }
         parent.numListenersRecursive++;
 
-        if (!parent.listeners && !parent.listenersImmediate && isSyncedObservable(parent)) {
+        if (!parent.listeners?.size && !parent.listenersImmediate?.size && isSyncedObservable(parent)) {
             dispatchMiddlewareEvent(parent, undefined, 'listener-added');
         }
 
