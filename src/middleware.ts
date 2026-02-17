@@ -156,7 +156,6 @@ function processQueuedEvents(): void {
         // Use cached string constants for faster comparison
         if (type === 'listener-added') {
             if (listener) {
-                // Direct listener added to this node
                 isValid = !!nodeListeners?.has(listener) || !!nodeListenersImmediate?.has(listener);
             } else {
                 // Listener added to a child node - only valid if the parent node has no local listeners
@@ -183,7 +182,6 @@ function processQueuedEvents(): void {
             if (typeof node.numListenersRecursive === 'number') {
                 isValid = !hasAnyLocal && node.numListenersRecursive === 0;
             } else {
-                // Fallback: rely only on local listener sets
                 isValid = !hasAnyLocal;
             }
         }
