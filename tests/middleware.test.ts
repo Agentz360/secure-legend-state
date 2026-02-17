@@ -212,6 +212,38 @@ describe('Middleware System', () => {
         });
     });
 
+    test('should validate listeners-cleared events before dispatching', () => {
+        const handler = jest.fn();
+        registerMiddleware(countNode, 'listeners-cleared', handler);
+
+        // Add and remove a single listener to trigger listeners-cleared
+        const unsubscribe = store.count.onChange(() => {});
+        unsubscribe();
+
+        // Wait for first microtask to complete
+        return new Promise((resolve) => {
+            setTimeout(() => {
+                expect(handler).toHaveBeenCalledTimes(1);
+
+                // Reset the mock
+                handler.mockReset();
+
+                // Add another listener so the node is not empty
+                store.count.onChange(() => {});
+
+                // Try to dispatch a cleared event when there are still listeners
+                dispatchMiddlewareEvent(countNode, undefined, 'listeners-cleared');
+
+                // Wait for second microtask
+                setTimeout(() => {
+                    // Should not be called because node still has listeners
+                    expect(handler).not.toHaveBeenCalled();
+                    resolve(null);
+                }, 0);
+            }, 0);
+        });
+    });
+
     test('should validate listeners-cleared events on root node before dispatching', () => {
         const handler = jest.fn();
         // Register middleware on the root node so it can observe when the entire tree is cleared
