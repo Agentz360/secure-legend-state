@@ -163,7 +163,7 @@ function processQueuedEvents(): void {
                 // but has recursive listeners. This allows synced observables (which have no local
                 // listeners but need to know about recursive listeners) to react, while preserving
                 // the behavior that parent nodes with their own listeners don't get events from children.
-                const hasNoLocalListeners = !nodeListeners && !nodeListenersImmediate;
+                const hasNoLocalListeners = !nodeListeners?.size && !nodeListenersImmediate?.size;
                 if (hasNoLocalListeners && typeof node.numListenersRecursive === 'number') {
                     isValid = node.numListenersRecursive > 0;
                 } else {
