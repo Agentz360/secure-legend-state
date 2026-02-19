@@ -2033,6 +2033,36 @@ describe('useObservable', () => {
         expect(innerDerivedCallCount).toBe(innerDerivedCountAfterUnmount);
         expect(derivedCallCount).toBe(derivedCountAfterUnmount);
     });
+    test('useObservable with a synced should unsubscribe when unmounted', async () => {
+        let numSubscribes = 0;
+        let numUnsubscribes = 0;
+
+        const Test = observer(function Test() {
+            const obs$ = useObservable(
+                synced({
+                    initial: 0,
+                    subscribe: () => {
+                        numSubscribes++;
+                        return () => {
+                            numUnsubscribes++;
+                        };
+                    },
+                }),
+            );
+            return createElement('div', undefined, obs$.get());
+        });
+
+        const { unmount } = render(<Test />);
+
+        act(() => {
+            unmount();
+        });
+
+        await waitFor(() => promiseTimeout(0));
+
+        expect(numSubscribes).toBe(1);
+        expect(numUnsubscribes).toBe(1);
+    });
 });
 describe('useObservableState', () => {
     test('useObservableState does not select if value not accessed', () => {

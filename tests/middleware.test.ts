@@ -179,6 +179,27 @@ describe('Middleware System', () => {
             });
         });
 
+        test('should validate listener-added events when listener Sets exists but are ampty', () => {
+            const handler = jest.fn();
+            registerMiddleware(rootNode, 'listener-added', handler);
+
+            rootNode.listeners = new Set();
+            rootNode.listenersImmediate = new Set();
+
+            // Simulate "there is at least one recurisve listener"
+            rootNode.numListenersRecursive = 1;
+
+            dispatchMiddlewareEvent(rootNode, undefined, 'listener-added');
+
+            // Wait for first microtask to complete
+            return new Promise((resolve) => {
+                setTimeout(() => {
+                    expect(handler).toHaveBeenCalledTimes(1);
+                    resolve(null);
+                }, 0);
+            });
+        });
+
         test('should validate listener-removed events before dispatching', () => {
             const handler = jest.fn();
             registerMiddleware(countNode, 'listener-removed', handler);
@@ -210,37 +231,71 @@ describe('Middleware System', () => {
                 }, 0);
             });
         });
+    });
 
-        test('should validate listeners-cleared events before dispatching', () => {
-            const handler = jest.fn();
-            registerMiddleware(countNode, 'listeners-cleared', handler);
+    test('should validate listeners-cleared events before dispatching', () => {
+        const handler = jest.fn();
+        registerMiddleware(countNode, 'listeners-cleared', handler);
 
-            // Add and remove a single listener to trigger listeners-cleared
-            const unsubscribe = store.count.onChange(() => {});
-            unsubscribe();
+        // Add and remove a single listener to trigger listeners-cleared
+        const unsubscribe = store.count.onChange(() => {});
+        unsubscribe();
 
-            // Wait for first microtask to complete
-            return new Promise((resolve) => {
+        // Wait for first microtask to complete
+        return new Promise((resolve) => {
+            setTimeout(() => {
+                expect(handler).toHaveBeenCalledTimes(1);
+
+                // Reset the mock
+                handler.mockReset();
+
+                // Add another listener so the node is not empty
+                store.count.onChange(() => {});
+
+                // Try to dispatch a cleared event when there are still listeners
+                dispatchMiddlewareEvent(countNode, undefined, 'listeners-cleared');
+
+                // Wait for second microtask
                 setTimeout(() => {
-                    expect(handler).toHaveBeenCalledTimes(1);
-
-                    // Reset the mock
-                    handler.mockReset();
-
-                    // Add another listener so the node is not empty
-                    store.count.onChange(() => {});
-
-                    // Try to dispatch a cleared event when there are still listeners
-                    dispatchMiddlewareEvent(countNode, undefined, 'listeners-cleared');
-
-                    // Wait for second microtask
-                    setTimeout(() => {
-                        // Should not be called because node still has listeners
-                        expect(handler).not.toHaveBeenCalled();
-                        resolve(null);
-                    }, 0);
+                    // Should not be called because node still has listeners
+                    expect(handler).not.toHaveBeenCalled();
+                    resolve(null);
                 }, 0);
-            });
+            }, 0);
+        });
+    });
+
+    test('should not auto-trigger listeners-cleared on root node for child listeners', () => {
+        const handler = jest.fn();
+        // Register middleware on the root node
+        registerMiddleware(rootNode, 'listeners-cleared', handler);
+
+        // Add and remove a child listener. Root should not receive listeners-cleared automatically
+        // because listener events should not bubble for non-synced parent nodes.
+        const unsubscribe = store.user.name.onChange(() => {});
+        unsubscribe();
+
+        // Wait for first microtask to complete
+        return new Promise((resolve) => {
+            setTimeout(() => {
+                expect(handler).toHaveBeenCalledTimes(0);
+
+                // Reset the mock
+                handler.mockReset();
+
+                // Add another listener so the node is not empty
+                store.user.name.onChange(() => {});
+
+                // Try to dispatch a cleared event when there are still listeners
+                dispatchMiddlewareEvent(rootNode, undefined, 'listeners-cleared');
+
+                // Wait for second microtask
+                setTimeout(() => {
+                    // Should not be called because node still has listeners
+                    expect(handler).not.toHaveBeenCalled();
+                    resolve(null);
+                }, 0);
+            }, 0);
         });
     });
 
@@ -331,6 +386,23 @@ describe('Middleware System', () => {
                     expect(countHandler).toHaveBeenCalledTimes(1);
                     expect(userNameHandler).toHaveBeenCalledTimes(1);
 
+                    resolve(null);
+                }, 0);
+            });
+        });
+
+        test('should not trigger listeners-cleared on non-synced parent when child listeners are removed', () => {
+            const parentClearedHandler = jest.fn();
+            registerMiddleware(rootNode, 'listeners-cleared', parentClearedHandler);
+
+            const unsubscribe = store.count.onChange(() => {});
+            unsubscribe();
+
+            return new Promise((resolve) => {
+                setTimeout(() => {
+                    // Parent/root middleware should not receive child listeners-cleared events
+                    // unless the parent itself is a synced observable.
+                    expect(parentClearedHandler).toHaveBeenCalledTimes(0);
                     resolve(null);
                 }, 0);
             });

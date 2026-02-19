@@ -55,6 +55,102 @@ describe('unsubscribe', () => {
         expect(numSubscribes).toEqual(2);
         expect(numUnsubscribes).toEqual(1);
     });
+
+    test('Canceling observe unsubscribes observing child node', async () => {
+        let numObserves = 0;
+        let numSubscribes = 0;
+        let numUnsubscribes = 0;
+
+        const obs$ = observable(
+            synced({
+                get: () => ({ foo: 'bar' }),
+                subscribe: () => {
+                    numSubscribes++;
+
+                    return () => {
+                        numUnsubscribes++;
+                    };
+                },
+            }),
+        );
+
+        const unsubscribe = observe(() => {
+            numObserves++;
+            obs$.foo.get();
+        });
+
+        expect(numObserves).toEqual(1);
+        expect(numSubscribes).toEqual(1);
+        expect(numUnsubscribes).toEqual(0);
+
+        unsubscribe();
+
+        await promiseTimeout(0);
+
+        expect(numObserves).toEqual(1);
+        expect(numSubscribes).toEqual(1);
+        expect(numUnsubscribes).toEqual(1);
+
+        obs$.foo.get();
+
+        expect(numObserves).toEqual(1);
+        expect(numSubscribes).toEqual(1);
+        expect(numUnsubscribes).toEqual(1);
+
+        observe(() => {
+            numObserves++;
+            obs$.foo.get();
+        });
+
+        await promiseTimeout(0);
+
+        expect(numObserves).toEqual(2);
+        expect(numUnsubscribes).toEqual(1);
+        expect(numSubscribes).toEqual(2);
+    });
+    test('Observing child re-subscribes even after root was previously observed directly', async () => {
+        let numSubscribes = 0;
+        let numUnsubscribes = 0;
+
+        const obs$ = observable(
+            synced({
+                get: () => ({ foo: 'bar' }),
+                subscribe: () => {
+                    numSubscribes++;
+                    return () => {
+                        numUnsubscribes++;
+                    };
+                },
+            }),
+        );
+
+        const unsubscribeRoot = observe(() => {
+            obs$.get();
+        });
+
+        expect(numSubscribes).toEqual(1);
+        expect(numUnsubscribes).toEqual(0);
+
+        unsubscribeRoot();
+        await promiseTimeout(0);
+
+        expect(numSubscribes).toEqual(1);
+        expect(numUnsubscribes).toEqual(1);
+
+        const unsubscribeChild = observe(() => {
+            obs$.foo.get();
+        });
+
+        await promiseTimeout(0);
+        expect(numSubscribes).toEqual(2);
+        expect(numUnsubscribes).toEqual(1);
+
+        unsubscribeChild();
+        await promiseTimeout(0);
+
+        expect(numSubscribes).toEqual(2);
+        expect(numUnsubscribes).toEqual(2);
+    });
 });
 
 describe('synced', () => {
