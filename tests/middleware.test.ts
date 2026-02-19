@@ -265,19 +265,20 @@ describe('Middleware System', () => {
         });
     });
 
-    test('should validate listeners-cleared events on root node before dispatching', () => {
+    test('should not auto-trigger listeners-cleared on root node for child listeners', () => {
         const handler = jest.fn();
-        // Register middleware on the root node so it can observe when the entire tree is cleared
+        // Register middleware on the root node
         registerMiddleware(rootNode, 'listeners-cleared', handler);
 
-        // Add and remove a single listener to trigger listeners-cleared on both the node and root
+        // Add and remove a child listener. Root should not receive listeners-cleared automatically
+        // because listener events should not bubble for non-synced parent nodes.
         const unsubscribe = store.user.name.onChange(() => {});
         unsubscribe();
 
         // Wait for first microtask to complete
         return new Promise((resolve) => {
             setTimeout(() => {
-                expect(handler).toHaveBeenCalledTimes(1);
+                expect(handler).toHaveBeenCalledTimes(0);
 
                 // Reset the mock
                 handler.mockReset();
@@ -385,6 +386,23 @@ describe('Middleware System', () => {
                     expect(countHandler).toHaveBeenCalledTimes(1);
                     expect(userNameHandler).toHaveBeenCalledTimes(1);
 
+                    resolve(null);
+                }, 0);
+            });
+        });
+
+        test('should not trigger listeners-cleared on non-synced parent when child listeners are removed', () => {
+            const parentClearedHandler = jest.fn();
+            registerMiddleware(rootNode, 'listeners-cleared', parentClearedHandler);
+
+            const unsubscribe = store.count.onChange(() => {});
+            unsubscribe();
+
+            return new Promise((resolve) => {
+                setTimeout(() => {
+                    // Parent/root middleware should not receive child listeners-cleared events
+                    // unless the parent itself is a synced observable.
+                    expect(parentClearedHandler).toHaveBeenCalledTimes(0);
                     resolve(null);
                 }, 0);
             });

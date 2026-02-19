@@ -15,6 +15,10 @@ export function isSyncedObservable(node: NodeInfo): boolean {
     return (node.activationState as LinkedOptions & { synced?: true })?.synced || false;
 }
 
+function shouldDispatchParentMiddlewareEvent(node: NodeInfo): boolean {
+    return !node.listeners?.size && !node.listenersImmediate?.size && isSyncedObservable(node);
+}
+
 export function onChange(
     node: NodeInfo,
     callback: ListenerFn,
@@ -101,7 +105,7 @@ export function onChange(
         }
         parent.numListenersRecursive++;
 
-        if (!parent.listeners?.size && !parent.listenersImmediate?.size && isSyncedObservable(parent)) {
+        if (shouldDispatchParentMiddlewareEvent(parent)) {
             dispatchMiddlewareEvent(parent, undefined, 'listener-added');
         }
 
@@ -138,7 +142,7 @@ export function onChange(
 
         for (const clearedNode of clearedRecursive) {
             // Dispatch listeners-cleared for all cleared nodes
-            if (clearedNode !== node) {
+            if (clearedNode !== node && shouldDispatchParentMiddlewareEvent(clearedNode)) {
                 dispatchMiddlewareEvent(clearedNode, undefined, 'listeners-cleared');
             }
         }
